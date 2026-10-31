@@ -1,5 +1,8 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Text.Json;
 
 namespace Todo.Core
 {
@@ -19,9 +22,39 @@ namespace Todo.Core
         public bool Remove(Guid id) => _items.RemoveAll(i => i.Id == id) > 0;
 
         public IEnumerable<TodoItem> Find(string substring) =>
-            _items.Where(i => i.Title.Contains(substring ?? string.Empty,
-StringComparison.OrdinalIgnoreCase));
+            _items.Where(i => i.Title.Contains(substring ?? string.Empty, StringComparison.OrdinalIgnoreCase));
 
         public int Count => _items.Count;
+
+
+
+        public void Save(string path)
+        {
+
+            var options = new JsonSerializerOptions { WriteIndented = true };
+            var json = JsonSerializer.Serialize(Items, options);
+
+
+            File.WriteAllText(path, json);
+        }
+
+        public void Load(string path)
+        {
+            if (!File.Exists(path))
+            {
+                throw new FileNotFoundException($"Файл не найден: {path}");
+            }
+
+            var json = File.ReadAllText(path);
+
+
+            var loadedItems = JsonSerializer.Deserialize<List<TodoItem>>(json);
+
+            _items.Clear();
+            if (loadedItems != null)
+            {
+                _items.AddRange(loadedItems);
+            }
+        }
     }
 }
