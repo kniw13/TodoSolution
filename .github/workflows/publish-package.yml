@@ -8,7 +8,12 @@ on:
 
 jobs:
   publish:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    # Публикуем ТОЛЬКО если CI завершился успешно И это был пуш в master (а не PR)
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'master'
+    
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -18,14 +23,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          # Скачиваем именно тот коммит, который собрался
           ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
-          # раскомментируйте, если .NET 10 ещё Preview/RC:
-          # dotnet-quality: 'preview'
+          # dotnet-quality: 'preview' # Раскомментируйте, если 10-ка еще не вышла официально
 
       - name: Restore
         run: dotnet restore
@@ -33,11 +38,17 @@ jobs:
       - name: Build (Release)
         run: dotnet build -c Release --no-restore
 
-      - name: Pack
-        run: dotnet pack Todo.Core/Todo.Core.csproj -c Release -o ./artifacts
+      # --- ОТЛАДКА (можно удалить потом) ---
+      - name: Verify Project Exists
+        run: |
+          ls -la
+          ls -la Todo.Core/
+      # -------------------------------------
 
-      - name: List artifacts
-        run: ls -la ./artifacts || true
+      - name: Pack
+        # ИСПОЛЬЗУЕМ ПУТЬ К ПАПКЕ (dotnet сам найдет .csproj внутри) 
+        # или проверьте точное имя файла
+        run: dotnet pack Todo.Core/Todo.Core.csproj -c Release -o ./artifacts
 
       - name: Push package to GitHub Packages (NuGet)
         run: >
